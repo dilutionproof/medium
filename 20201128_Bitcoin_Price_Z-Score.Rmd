@@ -1,0 +1,220 @@
+---
+title: "Bitcoin Price Z-Score"
+author: "dilutionproof"
+date: "11/28/2020"
+output: html_document
+---
+
+This R markdown file contains the code and charts that I've used for my blog post about the Bitcoin Price Z-Score that I will share on my Medium (https://medium.com/@dilutionproof) and Twitter (https://twitter.com/dilutionproof) profiles after uploading it.
+
+## Load libraries & data
+
+```{r}
+library(tidyverse)
+df_btc <- read_csv(file = "https://coinmetrics.io/newdata/btc.csv")
+```
+
+## MVRV Z-Score (Awe & Wonder version)
+
+```{r}
+df_btc$mvrvz_aw <- 0
+for (i in 1:nrow(df_btc)){df_btc$mvrvz_aw[i] <- (df_btc$CapMrktCurUSD[i] - df_btc$CapRealUSD[i]) / sd(df_btc$CapMrktCurUSD[0:i], na.rm=TRUE)}
+chart_mvrvz_aw <- ggplot(df_btc, aes(date, mvrvz_aw)) +
+  geom_line(size=0.25) +
+  geom_vline(xintercept = as.Date(c("2012-11-28","2016-07-09","2020-05-09")), linetype=2) +
+  geom_hline(yintercept = 0, linetype=1, size=0.25, color="green") +
+  geom_hline(yintercept = 7, linetype=2, size=0.25, color="red") +
+  scale_y_continuous(breaks = c(-1,0,1,2,3,4,5,6,7,8,9,10), minor_breaks = NULL, limits = c(-1, 10)) +
+  scale_x_date(breaks = "1 year", minor_breaks = NULL, date_labels = "%Y", limits = as.Date(c("2010-07-10", last(df_btc$date)))) + 
+  labs(title = "Bitcoin MVRV Z-Score (Awe & Wonder version)", subtitle = "Data by Coinmetrics", x = "Time", y = "Z-Score ((MV-RV)/RV_sd)") + 
+  theme_linedraw()
+chart_mvrvz_aw
+```
+
+## MVRV Z-Score (@dilutionproof version)
+
+```{r}
+df_btc$mvrvz_dp <- 0
+for (i in 1:nrow(df_btc)){df_btc$mvrvz_dp[i] <- (df_btc$CapMVRVCur[i] - mean(df_btc$CapMVRVCur[0:i], na.rm = TRUE)) / sd(df_btc$CapMVRVCur[0:i], na.rm=TRUE)}
+chart_mvrvz_dp <- ggplot(df_btc, aes(date, mvrvz_dp)) +
+  geom_line(size=0.25) +
+  geom_vline(xintercept = as.Date(c("2012-11-28","2016-07-09","2020-05-09")), linetype=2) +
+  geom_hline(yintercept = -0.4, linetype=2, size=0.25, color="green") +
+  geom_hline(yintercept = 0, linetype=1, size=0.25, color="black") +
+  geom_hline(yintercept = 0.4, linetype=2, size=0.25, color="orange") +
+  geom_hline(yintercept = 0.6, linetype=2, size=0.25, color="red") +
+  scale_y_continuous(breaks = seq(-0.8,0.8,0.2), minor_breaks = NULL) +
+  scale_x_date(breaks = "1 year", minor_breaks = NULL,date_labels = "%Y", limits = as.Date(c("2010-07-10", last(df_btc$date)))) + 
+  labs(title = "Bitcoin MVRV Z-Score (@dilutionproof version)", subtitle = "Data by Coinmetrics", x = "Time", y = "Z-Score (# SD's from mean)") + 
+  theme_linedraw()
+chart_mvrvz_dp
+```
+
+## Bitcoin Price Z-Score (infinite moving-average version)
+
+```{r}
+# Bitcoin Price Z-Score (infinite moving-average version)
+df_btc$pricez_inf <- 0
+for (i in 1:nrow(df_btc)){df_btc$pricez_inf[i] <- (df_btc$PriceUSD[i] - mean(df_btc$PriceUSD[0:i], na.rm = TRUE)) / sd(df_btc$PriceUSD[0:i], na.rm=TRUE)}
+
+chart_pricez_inf <- ggplot(df_btc, aes(date, pricez_inf)) +
+  geom_line(size=0.25) +
+  geom_vline(xintercept = as.Date(c("2012-11-28","2016-07-09","2020-05-09")), linetype=2, size = 0.25) +
+  geom_hline(yintercept = 0, linetype=1, size=0.25, color="black") +
+  geom_hline(yintercept = 1, linetype=2, size=0.25, color="green") +
+  geom_hline(yintercept = 6, linetype=2, size=0.25, color="orange") +
+  geom_hline(yintercept = 11, linetype=2, size=0.25, color="red") +
+  scale_x_date(breaks = "1 year", minor_breaks = NULL, date_labels = "%Y", limits = c(as.Date("2010-07-18"), last(df_btc$date))) + 
+  scale_y_continuous(limits = c(-1,13), breaks = seq(-1,13,1),  minor_breaks = NULL) +
+  labs(title = "Bitcoin Price Z-Score (infinite moving average version)", subtitle = "Data by Coinmetrics; idea & chart by @dilutionproof", x = "Time", y = "Z-Score (# SD's from mean)") + 
+  theme_linedraw()
+chart_pricez_inf
+```
+
+## Bitcoin Price Z-Score per epoch (infinite moving average version)
+
+```{r}
+df_btc <- df_btc %>%
+  mutate(epoch = ifelse(date < as.Date("2012-11-28"), 1,
+                   ifelse(date < as.Date("2016-07-09"), 2,
+                          ifelse(date < as.Date("2020-05-09"), 3, 4))),
+         epoch = factor(epoch))
+
+df_btc_epoch1 <- df_btc %>% filter(epoch == 1)
+df_btc_epoch2 <- df_btc %>% filter(epoch == 2)
+df_btc_epoch3 <- df_btc %>% filter(epoch == 3)
+df_btc_epoch4 <- df_btc %>% filter(epoch == 4)
+
+df_btc_epoch1 <- df_btc_epoch1 %>% mutate(day = 1:nrow(df_btc_epoch1))
+df_btc_epoch2 <- df_btc_epoch2 %>% mutate(day = 1:nrow(df_btc_epoch2))
+df_btc_epoch3 <- df_btc_epoch3 %>% mutate(day = 1:nrow(df_btc_epoch3))
+df_btc_epoch4 <- df_btc_epoch4 %>% mutate(day = 1:nrow(df_btc_epoch4))
+
+df_btc <- bind_rows(df_btc_epoch1, df_btc_epoch2, df_btc_epoch3, df_btc_epoch4)
+remove(df_btc_epoch1, df_btc_epoch2, df_btc_epoch3, df_btc_epoch4)
+
+chart_pricez_inf_epoch <- ggplot(df_btc, aes(x = day, y = pricez_inf)) +
+  geom_line(aes(colour = epoch), size=0.25) +
+  geom_vline(xintercept = 0, linetype=1, size=0.25, color="black") +
+  geom_hline(yintercept = 0, linetype=1, size=0.25, color="black") +
+  geom_hline(yintercept = 1, linetype=2, size=0.25, color="green") +
+  geom_hline(yintercept = 6, linetype=2, size=0.25, color="orange") +
+  geom_hline(yintercept = 11, linetype=2, size=0.25, color="red") +
+  scale_x_continuous(breaks = seq(0,1460,365),
+                     minor_breaks = NULL,
+                     labels = seq(0,4,1)) +
+  scale_y_continuous(limits = c(-1,13),
+                     breaks = seq(-1,13,1),
+                     minor_breaks = NULL) +
+  labs(title = "Bitcoin Price Z-Score (infinite moving average version) per halving epoch", subtitle = "Data by Coinmetrics; idea & chart by @dilutionproof", x = "Time since halving (years)", 
+       y = "Z-Score (# SD's from mean)") + 
+  theme_linedraw()
+chart_pricez_inf_epoch
+```
+
+## Last time 0?
+
+```{r}
+temp <- df_btc %>% filter(pricez_inf <= 0)
+last(temp$date)
+remove(temp)
+```
+
+## Current-day price for Z=c(6,11,12,13)?
+
+```{r}
+6/last(df_btc$pricez_inf)*last(df_btc$PriceUSD)
+11/last(df_btc$pricez_inf)*last(df_btc$PriceUSD)
+12/last(df_btc$pricez_inf)*last(df_btc$PriceUSD)
+13/last(df_btc$pricez_inf)*last(df_btc$PriceUSD)
+```
+
+## Infinite vs 4-year MA
+
+```{r}
+# Infinite moving average
+df_btc$infma <- 0
+for (i in 1:nrow(df_btc)){df_btc$infma[i] <- mean(df_btc$PriceUSD[0:i], na.rm = TRUE)}
+
+# 4-year moving average (using the to-date-available data the first 4 years)
+df_btc$fyma <- 0
+for (i in 1:nrow(df_btc)){df_btc$fyma[i] <- mean(df_btc$PriceUSD[ifelse(i<1460,0,(i-1460)):i], na.rm = TRUE)}
+
+# Log price chart with infinite-day moving average and 4-year moving average
+chart_logprice <- ggplot(df_btc, aes(x = date)) +
+  geom_line(aes(y = PriceUSD), size=0.25) +
+  geom_line(aes(y = fyma, colour = "purple"), size=0.25) +
+  geom_line(aes(y = infma, colour = "blue"), size=0.25) +
+  geom_vline(xintercept = as.Date(c("2012-11-28","2016-07-09","2020-05-09")), linetype=2, size = 0.25) +
+  scale_y_log10(breaks = c(0,1,10,100,1000,10000,100000)) +
+  scale_x_date(breaks = "1 year",
+               date_labels = "%Y",
+               limits = as.Date(c("2010-07-10", last(df_btc$date)))) + 
+  scale_color_discrete(name = "MA version", labels = c("Infinite", "4-year")) +
+  labs(title = "Bitcoin price (USD)", subtitle = "Data by Coinmetrics; idea & chart by @dilutionproof", x = "Time", 
+       y = "Price (USD)") + 
+  theme_linedraw()
+chart_logprice
+```
+
+## Bitcoin Price Z-Score (4-year moving average version)
+
+```{r}
+df_btc$fysd <- 0
+for (i in 1:nrow(df_btc)){df_btc$fysd[i] <- sd(df_btc$PriceUSD[ifelse(i<1460,0,(i-1460)):i], na.rm = TRUE)}
+
+df_btc$pricez_fyma <- 0
+for (i in 1:nrow(df_btc)){df_btc$pricez_fyma[i] <- (df_btc$PriceUSD[i] - df_btc$fyma[i]) / df_btc$fysd[i]}
+
+chart_pricez_fy <- ggplot(df_btc, aes(date, pricez_fyma)) +
+  geom_line(size=0.25) +
+  geom_vline(xintercept = as.Date(c("2012-11-28","2016-07-09","2020-05-09")), linetype=2, size = 0.25) +
+  geom_hline(yintercept = 0, linetype=1, size=0.25, color="green") +
+  geom_hline(yintercept = 6, linetype=2, size=0.25, color="yellow") +
+  geom_hline(yintercept = 8, linetype=2, size=0.25, color="orange") +
+  geom_hline(yintercept = 11, linetype=2, size=0.25, color="red") +
+  scale_x_date(breaks = "1 year", minor_breaks = NULL, date_labels = "%Y", limits = as.Date(c("2010-07-18", last(df_btc$date)))) + 
+  scale_y_continuous(limits = c(-1,13), breaks = seq(-1,13,1), minor_breaks = NULL) +
+  labs(title = "Bitcoin Price Z-Score (4-year moving average version) ", subtitle = "Data by Coinmetrics; idea & chart by @dilutionproof", x = "Time", y = "Z-Score (# SD's from mean)") + 
+  theme_linedraw()
+chart_pricez_fy
+```
+
+## Bitcoin Price Z-Score per epoch (4-year moving average version)
+
+```{r}
+chart_pricez_fm_epoch <- ggplot(df_btc, aes(x = day, y = pricez_fyma)) +
+  geom_line(aes(colour = epoch), size=0.25) +
+  geom_hline(yintercept = 0, linetype=1, size=0.25, color="green") +
+  geom_hline(yintercept = 6, linetype=2, size=0.25, color="yellow") +
+  geom_hline(yintercept = 8, linetype=2, size=0.25, color="orange") +
+  geom_hline(yintercept = 11, linetype=2, size=0.25, color="red") +
+  scale_x_continuous(breaks = seq(0,1460,365),
+                     minor_breaks = NULL,
+                     labels = seq(0,4,1)) +
+  scale_y_continuous(limits = c(-1,13),
+                     breaks = seq(-1,13,1),
+                     minor_breaks = NULL) +
+  labs(title = "Bitcoin Price Z-Score (4-year moving average version) per halving epoch", subtitle = "Data by Coinmetrics; idea & chart by @dilutionproof", x = "Time since halving (years)", 
+       y = "Z-Score (# SD's from mean)") + 
+  theme_linedraw()
+chart_pricez_fm_epoch
+```
+
+
+## Last time 0?
+
+```{r}
+temp <- df_btc %>% filter(pricez_fyma <= 0)
+last(temp$date)
+remove(temp)
+```
+
+## Current-day price for Z=c(6,11,12,13)?
+
+```{r}
+6/last(df_btc$pricez_fyma)*last(df_btc$PriceUSD)
+8/last(df_btc$pricez_fyma)*last(df_btc$PriceUSD)
+11/last(df_btc$pricez_fyma)*last(df_btc$PriceUSD)
+12/last(df_btc$pricez_fyma)*last(df_btc$PriceUSD)
+```
