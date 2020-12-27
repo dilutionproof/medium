@@ -83,6 +83,8 @@ remove(i, temp)
 
 ## 1 Bitcoin Log Price Chart ----
 Sys.setlocale("LC_TIME", "C")
+firstvalidprice <- df_btc$PriceUSD[min(which(!is.na(df_btc$PriceUSD)))]
+row_number_firstvalidprice <- as.numeric(which(df_btc$PriceUSD == firstvalidprice))
 chart_logprice_ma4y <- paste(" $", as.character(round(df_btc$ma4y[max(which(!is.na(df_btc$ma4y)))], digits = 0)), sep="")
 chart_logprice_curprice <- paste(" $", as.character(round(last(df_btc$PriceUSD), digits = 0)), sep="")
 chart_logprice <- ggplot(df_btc, aes(x = date)) +
